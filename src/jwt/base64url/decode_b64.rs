@@ -1,4 +1,6 @@
-pub fn decodificar_json_base64(base64_str: &str) -> Result<String, String> {
+use serde_json::Value;
+
+pub fn decodificar_json_base64(base64_str: &str) -> Result<Value, String> {
     let base64_clean = base64_str.trim_end_matches('=');
     
     let binario = converte_base64_bin(base64_clean);
@@ -7,11 +9,20 @@ pub fn decodificar_json_base64(base64_str: &str) -> Result<String, String> {
     
     let json_str = binario_para_texto(&binario_agrupado);
     
-    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&json_str) {
-        Ok(parsed.to_string())
-    } else {
-        Err("String decodificada não é um JSON válido".to_string())
-    }
+    serde_json::from_str(&json_str)
+        .map_err(|e| format!("String decodificada não é um JSON válido: {}", e))
+}
+
+pub fn decodificar_signature(signature: &str) -> Result<String, String> {
+    let signature_clean = signature.trim_end_matches('=');
+    
+    let binario = converte_base64_bin(signature_clean);
+    
+    let binario_agrupado = separa_string_binaria(&binario, 8);
+    
+    let json_str = binario_para_texto(&binario_agrupado);
+    
+    Ok(json_str)
 }
 
 fn converte_base64_bin(string: &str) -> String {

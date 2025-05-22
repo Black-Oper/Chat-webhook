@@ -91,7 +91,7 @@ pub fn generate_keys() {
     let d = generate_d(e, phin);
     
     let keys: [u64; 3] = [n, e, d];
-    let mut file = File::create("src/key/keys.key")
+    let mut file = File::create("src/key.txt")
         .expect("Não foi possível criar o arquivo de chaves");
 
     for &value in &keys {

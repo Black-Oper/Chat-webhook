@@ -1,5 +1,3 @@
-use serde_json::Value;
-
 pub fn converter_json_base64(json: &str) -> String {
     let binario = converter_binario(json);
     

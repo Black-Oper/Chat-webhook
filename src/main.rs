@@ -1,38 +1,55 @@
 use axum::{Router, routing::post, http::StatusCode, response::IntoResponse};
-use serde::{Serialize, Deserialize};
 use chrono::Local;
 use std::{env, io::BufRead, net::SocketAddr, thread};
 use tokio::net::TcpListener;
 use reqwest::blocking::Client;
 
-
-// define a estrutura do JSON que será enviado
-#[derive(Serialize, Deserialize)]
-struct ChatMessage {
-    username: String,
-    text: String,
-    timestamp: String,
-}
+mod jwt;
+use jwt::generate_jwt::generate_jwt;
+use jwt::read_jwt::read_jwt;
+use jwt::structs::ChatMessage;
 
 // Função assíncrona que processa a mensagem recebida
 // Tenta parsear o corpo da requisição como JSON para ChatMessage
 // Se bem-sucedido, imprime a mensagem formatada no console
 // Retorna códigos de status HTTP apropriados
+// main.rs
 async fn handle_message(body: String) -> impl IntoResponse {
-    match serde_json::from_str::<ChatMessage>(&body) {
-        Ok(msg) => {
-            println!("{} [{}]: {}", msg.username, msg.timestamp, msg.text);
-            StatusCode::OK
+    // Primeiro, desserialize a string do token do corpo JSON
+    let token_str: String = match serde_json::from_str(&body) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Falha ao desserializar o token do corpo JSON: {}", e);
+            // Retorne um erro explícito para indicar que o corpo da requisição não era o esperado
+            return (StatusCode::BAD_REQUEST, format!("Corpo da requisição JSON inválido: {}", e)).into_response();
+        }
+    };
+
+    // Agora passe a string JWT real para read_jwt
+    match read_jwt(&token_str) { // Alterado de &body para &token_str
+        Ok(ref payload_str) => {
+            match serde_json::from_str::<ChatMessage>(payload_str) {
+                Ok(msg) => {
+                    println!("{} [{}]: {}", msg.username, msg.timestamp, msg.text);
+                    StatusCode::OK.into_response()
+                }
+                Err(err) => {
+                    eprintln!("JSON inválido no payload do JWT: {}", err);
+                    (StatusCode::BAD_REQUEST, format!("Payload JWT inválido: {}", err)).into_response()
+                }
+            }
         }
         Err(err) => {
-            eprintln!("JSON inválido: {}", err);
-            StatusCode::BAD_REQUEST
+            eprintln!("Erro ao ler JWT: {}", err);
+            // Forneça o erro específico de read_jwt na resposta
+            (StatusCode::BAD_REQUEST, format!("Erro na validação do JWT: {}", err)).into_response()
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
+
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
         eprintln!("Uso: {} <porta> <url_do_outro> <seu_nome>", args[0]);
@@ -43,7 +60,7 @@ async fn main() {
     let username  = args[3].clone();
 
     let app = Router::new().route("/message", post(handle_message));
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     println!("Servidor na porta {} — enviando para {}", port, peer_url);
 
@@ -65,7 +82,12 @@ async fn main() {
                 timestamp: Local::now().to_rfc3339(),
             };
 
-            if let Err(e) = http.post(&peer_url).json(&chat_msg).send() {
+            let token = generate_jwt(&chat_msg).unwrap_or_else(|err| {
+                eprintln!("Erro ao gerar JWT: {}", err);
+                String::new()
+            });
+
+            if let Err(e) = http.post(&peer_url).json(&token).send() {
                 eprintln!("Falha no POST: {}", e);
             }
         }
