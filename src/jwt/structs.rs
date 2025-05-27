@@ -8,7 +8,7 @@ pub struct Header {
     pub e: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub username: String,
     pub text: String,

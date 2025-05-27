@@ -13,3 +13,6 @@ serde_json  = "1.0"
 chrono      = { version = "0.4", features = ["serde", "clock"] }
 
 rand = "0.9.1"
+
+eframe = "0.27"
+egui = "0.27"

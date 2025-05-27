@@ -4,7 +4,7 @@ use super::structs::Header;
 use serde_json::{from_value, Value};
 
 pub fn read_jwt(jwt: &str) -> Result<String, String> {
-    // 1. Separa header, payload e assinatura
+
     let parts: Vec<&str> = jwt.split('.').collect();
     if parts.len() != 3 {
         return Err("Invalid JWT format".into());
